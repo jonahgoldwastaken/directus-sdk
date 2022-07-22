@@ -29,7 +29,7 @@ export enum Meta {
 }
 
 export type QueryOne<T> = {
-	fields?: keyof T | (keyof T)[] | '*' | '*.*' | '*.*.*' | string | string[];
+	fields?: DotSeparated<T, 3> | DotSeparated<T, 3>[] | '*' | '*.*' | '*.*.*' | string | string[];
 	search?: string;
 	deep?: Deep<T>;
 	export?: 'json' | 'csv' | 'xml';
@@ -139,3 +139,75 @@ export class EmptyParamError extends Error {
 		super(`${paramName ?? 'ID'} cannot be an empty string`);
 	}
 }
+
+type IsUnion<T, U extends T = T> = T extends unknown ? ([U] extends [T] ? false : true) : false;
+type IsObject<V> = V extends Record<string, any> ? true : false;
+type AppendToPath<Path extends string, Appendix extends string> = Path extends '' ? Appendix : `${Path}.${Appendix}`;
+type OneLevelUp<Path extends string> = Path extends `${infer Start}.${infer Middle}.${infer Rest}`
+	? Rest extends `${string}.${string}.${string}`
+		? `${Start}.${Middle}.${OneLevelUp<Rest>}`
+		: Rest extends `${infer NewMiddle}.${infer _}`
+		? `${Start}.${Middle}.${NewMiddle}`
+		: Rest extends string
+		? `${Start}.${Middle}`
+		: ''
+	: Path extends `${infer Start}.${infer _}`
+	? Start
+	: '';
+
+type LevelsToAsterisks<Path extends string> = Path extends `${string}.${string}.${infer Rest}`
+	? Rest extends `${string}.${string}.${string}`
+		? `*.*.${LevelsToAsterisks<Rest>}`
+		: Rest extends `${string}.${string}`
+		? `*.*.*.*`
+		: Rest extends string
+		? `*.*.*`
+		: ''
+	: Path extends `${string}.${string}`
+	? '*.*'
+	: '*';
+
+type DefaultAppends<Path extends string, Appendix extends string, Nested extends boolean = true> = Nested extends true
+	? OneLevelUp<Path> extends ''
+		?
+				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
+				| AppendToPath<AppendToPath<Path, Appendix>, '*'>
+				| AppendToPath<Path, '*'>
+		:
+				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
+				| AppendToPath<AppendToPath<Path, Appendix>, '*'>
+				| AppendToPath<Path, '*'>
+				| AppendToPath<AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>, '*'>
+				| AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>
+	: AppendToPath<Path, Appendix> | AppendToPath<LevelsToAsterisks<Path>, Appendix>;
+
+type DotSeparated<
+	T,
+	N extends number,
+	Level extends number[] = [],
+	Path extends string = ''
+> = Level['length'] extends N
+	? Path
+	: NonNullable<T> extends (infer U)[]
+	? U extends Record<string, any>
+		? DotSeparated<U, N, Level, Path>
+		: Path
+	: IsUnion<NonNullable<T>> extends true
+	? DotSeparated<Extract<NonNullable<T>, Record<string, any>>, N, Level, Path>
+	: T extends Record<string, any>
+	? {
+			[K in keyof T]: K extends string
+				?
+						| (NonNullable<T[K]> extends (infer U)[]
+								? U extends Record<string, any>
+									? DotSeparated<U, N, Level, AppendToPath<Path, K>> | DefaultAppends<Path, K>
+									: AppendToPath<Path, K>
+								: IsUnion<T[K]> extends true
+								? DotSeparated<T[K], N, [...Level, 0], AppendToPath<Path, K>>
+								: IsObject<T[K]> extends true
+								? DotSeparated<T[K], N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K>
+								: AppendToPath<Path, K>)
+						| DefaultAppends<Path, K, false>
+				: never;
+	  }[keyof T]
+	: never;
