@@ -251,12 +251,12 @@ type AppendToPath<Path extends string, Appendix extends string> = Path extends '
 type OneLevelUp<Path extends string> = Path extends `${infer Start}.${infer Middle}.${infer Rest}`
 	? Rest extends `${string}.${string}.${string}`
 		? `${Start}.${Middle}.${OneLevelUp<Rest>}`
-		: Rest extends `${infer NewMiddle}.${infer _}`
+		: Rest extends `${infer NewMiddle}.${string}`
 		? `${Start}.${Middle}.${NewMiddle}`
 		: Rest extends string
 		? `${Start}.${Middle}`
 		: ''
-	: Path extends `${infer Start}.${infer _}`
+	: Path extends `${infer Start}.${string}`
 	? Start
 	: '';
 
@@ -281,11 +281,15 @@ type DefaultAppends<Path extends string, Appendix extends string, Nested extends
 				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
 				| AppendToPath<AppendToPath<Path, Appendix>, '*'>
 				| AppendToPath<Path, '*'>
+				| AppendToPath<AppendToPath<Path, '*'>, '*'>
 		:
+				| AppendToPath<AppendToPath<AppendToPath<LevelsToAsterisks<OneLevelUp<Path>>, Path>, Appendix>, '*'>
 				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
 				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
 				| AppendToPath<AppendToPath<Path, Appendix>, '*'>
+				| AppendToPath<AppendToPath<Path, '*'>, '*'>
 				| AppendToPath<Path, '*'>
+				// Unique to this branch
 				| AppendToPath<AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>, '*'>
 				| AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>
 	: AppendToPath<Path, Appendix> | AppendToPath<LevelsToAsterisks<Path>, Appendix>;
