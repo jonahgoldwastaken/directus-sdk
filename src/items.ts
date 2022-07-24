@@ -280,10 +280,9 @@ type DefaultAppends<Path extends string, Appendix extends string, Nested extends
 				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
 				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
 				| AppendToPath<AppendToPath<Path, Appendix>, '*'>
-				| AppendToPath<Path, '*'>
 				| AppendToPath<AppendToPath<Path, '*'>, '*'>
+				| AppendToPath<Path, '*'>
 		:
-				| AppendToPath<AppendToPath<AppendToPath<LevelsToAsterisks<OneLevelUp<Path>>, Path>, Appendix>, '*'>
 				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
 				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
 				| AppendToPath<AppendToPath<Path, Appendix>, '*'>
@@ -291,6 +290,8 @@ type DefaultAppends<Path extends string, Appendix extends string, Nested extends
 				| AppendToPath<Path, '*'>
 				// Unique to this branch
 				| AppendToPath<AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>, '*'>
+				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
+				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
 				| AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>
 	: AppendToPath<Path, Appendix> | AppendToPath<LevelsToAsterisks<Path>, Appendix>;
 
