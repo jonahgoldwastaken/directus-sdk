@@ -40,6 +40,12 @@ export type QueryFields<Q extends Record<string, any>> = Q extends Record<'field
 		: false
 	: false;
 
+type DeepPathBranchHelper<T, K extends keyof T, V, R extends string> = K extends keyof V
+	? TreeBranch<T[K], R, V[K]>
+	: K extends keyof (V & { [_ in K]: unknown })
+	? TreeBranch<T[K], R, (V & { [_ in K]: unknown })[K]>
+	: never;
+
 type DeepPathToObject<
 	Path extends string,
 	T extends Record<string, any>,
@@ -49,39 +55,19 @@ type DeepPathToObject<
 	: Path extends `${infer Key}.${infer Rest}`
 	? Key extends keyof T
 		? Val & {
-				[_ in Key]?: Key extends keyof Val
-					? TreeBranch<T[Key], Rest, Val[Key]>
-					: Key extends keyof (Val & { [_ in Key]: unknown })
-					? TreeBranch<T[Key], Rest, (Val & { [_ in Key]: unknown })[Key]>
-					: never;
+				[_ in Key]?: DeepPathBranchHelper<T, Key, Val, Rest>;
 		  }
 		: Key extends '*'
 		? Rest extends `${infer NextVal}.${string}`
 			? Val & {
-					[K in keyof T]?: NextVal extends keyof T[K]
-						? K extends keyof Val
-							? TreeBranch<T[K], Rest, Val[K]>
-							: K extends keyof (Val & { [_ in K]: unknown })
-							? TreeBranch<T[NextVal], Rest, (Val & { [_ in K]: unknown })[K]>
-							: never
-						: never;
+					[K in keyof T]?: NextVal extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
 			  }
 			: Rest extends '*'
 			? Val & {
-					[K in keyof T]?: K extends keyof Val
-						? TreeBranch<T[K], Rest, Val[K]>
-						: K extends keyof (Val & { [_ in K]: unknown })
-						? TreeBranch<T[K], Rest, (Val & { [_ in K]: unknown })[K]>
-						: never;
+					[K in keyof T]?: DeepPathBranchHelper<T, K, Val, Rest>;
 			  }
 			: Val & {
-					[K in keyof T]?: Rest extends keyof T[K]
-						? K extends keyof Val
-							? TreeBranch<T[K], Rest, Val[K]>
-							: K extends keyof (Val & { [_ in K]: unknown })
-							? TreeBranch<T[K], Rest, (Val & { [_ in K]: unknown })[K]>
-							: never
-						: never;
+					[K in keyof T]?: Rest extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
 			  }
 		: never
 	: Path extends keyof T
@@ -95,11 +81,9 @@ type DeepPathToObject<
 	: never;
 
 type TreeBranch<T, Path extends string, Val = Record<string, never>, NT = NonNullable<T>> = NT extends (infer U)[]
-	? ArrayTreeBranch<U, Path, Val>[]
+	? (ArrayTreeBranch<Extract<U, Record<string, unknown>>, Path, Val> | Exclude<U, Record<string, unknown>>)[]
 	: IsUnion<T> extends true
-	? IsObject<Extract<T, Record<string, unknown>>> extends true
-		? DeepPathToObject<Path, Extract<T, Record<string, unknown>>, Val>
-		: DeepPathToObject<Path, NT, Val>
+	? DeepPathToObject<Path, Extract<T, Record<string, unknown>>, Val> | Exclude<T, Record<string, unknown>>
 	: DeepPathToObject<Path, NT, Val>;
 
 type ArrayTreeBranch<
@@ -107,26 +91,18 @@ type ArrayTreeBranch<
 	Path extends string,
 	Val = Record<string, never>,
 	NU = NonNullable<U>
-> = Val extends (infer U2)[]
-	? IsUnion<U2> extends true
-		? IsUnion<NU> extends true
+> = IsUnion<NU> extends true
+	? Val extends (infer U2)[]
+		? IsUnion<U2> extends true
 			? Extract<NU, Record<string, unknown>> extends infer OB
 				? DeepPathToObject<Path, OB, U2>
 				: never
 			: never
-		: IsUnion<NU> extends true
-		? Extract<NU, Record<string, unknown>> extends infer OB
-			? DeepPathToObject<Path, OB, U2>
-			: never
-		: Extract<NU, Record<string, unknown>> extends infer OB
-		? DeepPathToObject<Path, OB, U2>
 		: never
-	: IsUnion<NU> extends true
-	? Extract<NU, Record<string, unknown>> extends infer OB
-		? Val extends any[]
-			? DeepPathToObject<Path, OB, Val[number]>
-			: DeepPathToObject<Path, OB, Val>
-		: never
+	: Extract<NU, Record<string, unknown>> extends infer OB
+	? Val extends any[]
+		? DeepPathToObject<Path, OB, Val[number]>
+		: DeepPathToObject<Path, OB, Val>
 	: Extract<NU, Record<string, unknown>> extends infer OB
 	? DeepPathToObject<Path, OB, Val>
 	: never;
@@ -157,8 +133,12 @@ type UnionToTuple<TUnion, TResult extends Array<unknown> = []> = TUnion[] extend
 	? TResult
 	: UnionToTuple<Exclude<TUnion, LastUnion<TUnion>>, [...TResult, LastUnion<TUnion>]>;
 
-export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = Fields extends string[]
-	? UnionToTuple<Fields[number]> extends [infer First, ...infer Rest]
+export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = T extends Record<string, never>
+	? any
+	: Fields extends string[]
+	? Fields['length'] extends 0
+		? T
+		: UnionToTuple<Fields[number]> extends [infer First, ...infer Rest]
 		? First extends string
 			? IntersectionToObject<
 					Rest['length'] extends 0
@@ -170,21 +150,25 @@ export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unkno
 	: never;
 
 type IntersectionToObject<U> = U extends (infer U2)[]
-	? Array<
-			U2 extends infer O
-				? {
-						[K in keyof O]?: string extends K
-							? never
-							: O[K] extends Record<string, unknown>
-							? IntersectionToObject<O[K]>
-							: O[K];
-				  }
-				: never
-	  >
+	? Array<IntersectionToObject<U2>>
 	: U extends infer O
-	? {
-			[K in keyof O]: string extends K ? never : IntersectionToObject<O[K]>;
-	  }
+	? O extends string
+		? string
+		: O extends number
+		? number
+		: O extends symbol
+		? symbol
+		: O extends boolean
+		? boolean
+		: {
+				[K in keyof O]: string extends K
+					? never
+					: IsUnion<O[K]> extends true
+					? IntersectionToObject<O[K]>
+					: O[K] extends Record<string, any>
+					? IntersectionToObject<O[K]>
+					: O[K];
+		  }
 	: never;
 
 export type QueryOne<T = Record<string, never>> = {
