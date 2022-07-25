@@ -1,5 +1,5 @@
 import { TransportRequestOptions } from './transport';
-import { ID, DefaultType } from './types';
+import { ID } from './types';
 
 export type Field = string;
 
@@ -58,26 +58,30 @@ type DeepPathToObject<
 		: Key extends '*'
 		? Rest extends `${infer NextVal}.${string}`
 			? Val & {
-					[K in keyof T]?: NextVal extends keyof Val
-						? Val[NextVal] extends Record<string, unknown>
-							? TreeBranch<T[NextVal], Rest, Val[NextVal]>
-							: TreeBranch<T[NextVal], Rest>
-						: TreeBranch<T[NextVal], Rest>;
+					[K in keyof T]?: NextVal extends keyof T[K]
+						? K extends keyof Val
+							? TreeBranch<T[K], Rest, Val[K]>
+							: K extends keyof (Val & { [_ in K]: unknown })
+							? TreeBranch<T[NextVal], Rest, (Val & { [_ in K]: unknown })[K]>
+							: never
+						: never;
 			  }
 			: Rest extends '*'
 			? Val & {
 					[K in keyof T]?: K extends keyof Val
-						? Val[K] extends Record<string, unknown>
-							? TreeBranch<T[K], Rest, Val[K]>
-							: TreeBranch<T[K], Rest>
-						: TreeBranch<T[K], Rest>;
+						? TreeBranch<T[K], Rest, Val[K]>
+						: K extends keyof (Val & { [_ in K]: unknown })
+						? TreeBranch<T[K], Rest, (Val & { [_ in K]: unknown })[K]>
+						: never;
 			  }
 			: Val & {
-					[K in keyof T]?: K extends keyof Val
-						? Val[K] extends Record<string, unknown>
+					[K in keyof T]?: Rest extends keyof T[K]
+						? K extends keyof Val
 							? TreeBranch<T[K], Rest, Val[K]>
-							: TreeBranch<T[K], Rest>
-						: TreeBranch<T[K], Rest>;
+							: K extends keyof (Val & { [_ in K]: unknown })
+							? TreeBranch<T[K], Rest, (Val & { [_ in K]: unknown })[K]>
+							: never
+						: never;
 			  }
 		: never
 	: Path extends keyof T
@@ -132,7 +136,7 @@ type TreeLeaf<T, NT = NonNullable<T>> = NT extends (infer U)[]
 		? Extract<NonNullable<U>, Record<string, any>> extends Record<string, any>
 			? Exclude<NonNullable<U>, Record<string, any>>
 			: NonNullable<U>
-		: undefined
+		: NonNullable<U[]>
 	: IsUnion<NT> extends true
 	? Extract<NT, Record<string, any>> extends Record<string, any>
 		? Exclude<NT, Record<string, any>>
@@ -183,8 +187,8 @@ type IntersectionToObject<U> = U extends (infer U2)[]
 	  }
 	: never;
 
-export type QueryOne<T = DefaultType> = {
-	fields?: DefaultType extends T ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
+export type QueryOne<T = Record<string, never>> = {
+	fields?: T extends Record<string, never> ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
 	search?: string;
 	deep?: Deep<T>;
 	export?: 'json' | 'csv' | 'xml';
@@ -371,7 +375,7 @@ type DotSeparated<
 		? DotSeparated<U, N, Level, Path>
 		: Path
 	: IsUnion<NonNullable<T>> extends true
-	? DotSeparated<Extract<NonNullable<T>, Record<string, any>>, N, Level, Path>
+	? DotSeparated<Extract<NonNullable<T>, Record<string, unknown>>, N, Level, Path>
 	: IsObject<T> extends true
 	? {
 			[K in keyof T]: K extends string
