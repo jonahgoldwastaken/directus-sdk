@@ -9,6 +9,8 @@ export type PartialItem<T> = {
 	[P in keyof T]?: T[P] extends Record<string, any> ? PartialItem<T[P]> : T[P];
 };
 
+export type InferQueryType<T extends ManyItems<any> | QueryOne<any>> = 'data' extends keyof T ? T['data'] : T;
+
 export type OneItem<
 	T extends Item,
 	Q extends QueryOne<T> = Record<string, any>,
@@ -46,6 +48,14 @@ type DeepPathBranchHelper<T, K extends keyof T, V, R extends string> = K extends
 	? TreeBranch<T[K], R, (V & { [_ in K]: unknown })[K]>
 	: never;
 
+type WildCardHelper<T, K extends keyof T, V, R extends string> = NonNullable<T[K]> extends (infer U)[]
+	? Extract<NonNullable<U>, Record<string, unknown>> extends never
+		? TreeLeaf<U>
+		: DeepPathBranchHelper<T, K, V, R>
+	: Extract<NonNullable<T[K]>, Record<string, unknown>> extends never
+	? TreeLeaf<T[K]>
+	: DeepPathBranchHelper<T, K, V, R>;
+
 type DeepPathToObject<
 	Path extends string,
 	T extends Record<string, any>,
@@ -59,12 +69,16 @@ type DeepPathToObject<
 		  }
 		: Key extends '*'
 		? Rest extends `${infer NextVal}.${string}`
-			? Val & {
-					[K in keyof T]?: NextVal extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
-			  }
+			? NextVal extends '*'
+				? Val & {
+						[K in keyof T]: WildCardHelper<T, K, Val, Rest>;
+				  }
+				: Val & {
+						[K in keyof T]?: NextVal extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
+				  }
 			: Rest extends '*'
 			? Val & {
-					[K in keyof T]?: DeepPathBranchHelper<T, K, Val, Rest>;
+					[K in keyof T]: WildCardHelper<T, K, Val, Rest>;
 			  }
 			: Val & {
 					[K in keyof T]?: Rest extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
@@ -86,37 +100,23 @@ type TreeBranch<T, Path extends string, Val = Record<string, never>, NT = NonNul
 	? DeepPathToObject<Path, Extract<T, Record<string, unknown>>, Val> | Exclude<T, Record<string, unknown>>
 	: DeepPathToObject<Path, NT, Val>;
 
-type ArrayTreeBranch<
-	U,
-	Path extends string,
-	Val = Record<string, never>,
-	NU = NonNullable<U>
-> = IsUnion<NU> extends true
-	? Val extends (infer U2)[]
-		? IsUnion<U2> extends true
-			? Extract<NU, Record<string, unknown>> extends infer OB
-				? DeepPathToObject<Path, OB, U2>
-				: never
-			: never
-		: never
-	: Extract<NU, Record<string, unknown>> extends infer OB
-	? Val extends any[]
+type ArrayTreeBranch<U, Path extends string, Val = Record<string, never>, NU = NonNullable<U>> = Extract<
+	NU,
+	Record<string, unknown>
+> extends infer OB
+	? Val extends (infer _)[]
 		? DeepPathToObject<Path, OB, Val[number]>
 		: DeepPathToObject<Path, OB, Val>
-	: Extract<NU, Record<string, unknown>> extends infer OB
-	? DeepPathToObject<Path, OB, Val>
-	: never;
+	: Val extends (infer _)[]
+	? DeepPathToObject<Path, NU, Val[number]>
+	: DeepPathToObject<Path, NU, Val>;
 
 type TreeLeaf<T, NT = NonNullable<T>> = NT extends (infer U)[]
-	? IsUnion<NonNullable<U>> extends true
-		? Extract<NonNullable<U>, Record<string, any>> extends Record<string, any>
+	? (Extract<NonNullable<U>, Record<string, any>> extends Record<string, any>
 			? Exclude<NonNullable<U>, Record<string, any>>
-			: NonNullable<U>
-		: NonNullable<U[]>
-	: IsUnion<NT> extends true
-	? Extract<NT, Record<string, any>> extends Record<string, any>
-		? Exclude<NT, Record<string, any>>
-		: NT
+			: NonNullable<U>)[]
+	: Extract<NT, Record<string, any>> extends Record<string, any>
+	? Exclude<NT, Record<string, any>>
 	: NT extends Record<string, any>
 	? undefined
 	: NT;
@@ -161,8 +161,8 @@ type IntersectionToObject<U> = U extends (infer U2)[]
 		: O extends boolean
 		? boolean
 		: {
-				[K in keyof O]: string extends K
-					? never
+				[K in keyof O as unknown extends O[K] ? never : K]: O[K] extends (infer U)[]
+					? Array<IntersectionToObject<U>>
 					: IsUnion<O[K]> extends true
 					? IntersectionToObject<O[K]>
 					: O[K] extends Record<string, any>
@@ -298,7 +298,6 @@ export class EmptyParamError extends Error {
 }
 
 type IsUnion<T, U extends T = T> = T extends unknown ? ([U] extends [T] ? false : true) : false;
-type IsObject<V> = V extends Record<string, unknown> ? true : false;
 type AppendToPath<Path extends string, Appendix extends string> = Path extends '' ? Appendix : `${Path}.${Appendix}`;
 type OneLevelUp<Path extends string> = Path extends `${infer Start}.${infer Middle}.${infer Rest}`
 	? Rest extends `${string}.${string}.${string}`
@@ -326,26 +325,30 @@ type LevelsToAsterisks<Path extends string> = Path extends `${string}.${string}.
 	? ''
 	: '*';
 
-type DefaultAppends<Path extends string, Appendix extends string, Nested extends boolean = true> = Nested extends true
-	? OneLevelUp<Path> extends ''
-		?
-				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
-				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
-				| AppendToPath<AppendToPath<Path, Appendix>, '*'>
-				| AppendToPath<AppendToPath<Path, '*'>, '*'>
-				| AppendToPath<Path, '*'>
-		:
-				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
-				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
-				| AppendToPath<AppendToPath<Path, Appendix>, '*'>
-				| AppendToPath<AppendToPath<Path, '*'>, '*'>
-				| AppendToPath<Path, '*'>
-				// Unique to this branch
-				| AppendToPath<AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>, '*'>
-				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
-				| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
-				| AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>
-	: AppendToPath<Path, Appendix> | AppendToPath<LevelsToAsterisks<Path>, Appendix>;
+type DefaultAppends<
+	Path extends string,
+	Appendix extends string,
+	Nested extends boolean = true,
+	Prepend extends boolean = true
+> =
+	| AppendToPath<Path, Appendix>
+	| AppendToPath<LevelsToAsterisks<Path>, Appendix>
+	| (Prepend extends true
+			?
+					| AppendToPath<Path, '*'>
+					| AppendToPath<LevelsToAsterisks<Path>, Appendix>
+					| (OneLevelUp<Path> extends '' ? never : AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>)
+			: never)
+	| (Nested extends true
+			?
+					| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'>
+					| AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'>
+					| AppendToPath<AppendToPath<Path, Appendix>, '*'>
+					| AppendToPath<AppendToPath<Path, '*'>, '*'>
+					| (OneLevelUp<Path> extends ''
+							? never
+							: AppendToPath<AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>, '*'>)
+			: never);
 
 type DotSeparated<
 	T,
@@ -354,28 +357,24 @@ type DotSeparated<
 	Path extends string = ''
 > = Level['length'] extends N
 	? Path
-	: NonNullable<T> extends (infer U)[]
-	? IsObject<U> extends true
-		? DotSeparated<U, N, Level, Path>
+	: T extends (infer U)[]
+	? Extract<U, Record<string, unknown>> extends Record<string, unknown>
+		? DotSeparated<Extract<U, Record<string, unknown>>, N, Level, Path>
 		: Path
-	: IsUnion<NonNullable<T>> extends true
-	? DotSeparated<Extract<NonNullable<T>, Record<string, unknown>>, N, Level, Path>
-	: IsObject<T> extends true
+	: Extract<NonNullable<T>, Record<string, unknown>> extends Record<string, unknown>
 	? {
 			[K in keyof T]: K extends string
-				?
-						| (NonNullable<T[K]> extends (infer U)[]
-								? IsUnion<NonNullable<U>> extends true
-									? DotSeparated<NonNullable<U>, N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K>
-									: IsObject<NonNullable<U>> extends true
-									? DotSeparated<NonNullable<U>, N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K>
-									: DefaultAppends<Path, K, false>
-								: IsUnion<NonNullable<T[K]>> extends true
-								? DotSeparated<NonNullable<T[K]>, N, [...Level, 0], AppendToPath<Path, K>>
-								: IsObject<NonNullable<T[K]>> extends true
-								? DotSeparated<NonNullable<T[K]>, N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K>
-								: DefaultAppends<Path, K, false>)
-						| DefaultAppends<Path, K, false>
+				? T[K] extends (infer U)[]
+					? Extract<U, Record<string, unknown>> extends never
+						? DefaultAppends<Path, K, false>
+						:
+								| DotSeparated<Extract<U, Record<string, unknown>>, N, [...Level, 0], AppendToPath<Path, K>>
+								| DefaultAppends<Path, K>
+					: Extract<T[K], Record<string, unknown>> extends never
+					? DefaultAppends<Path, K, false>
+					:
+							| DotSeparated<Extract<T[K], Record<string, unknown>>, N, [...Level, 0], AppendToPath<Path, K>>
+							| DefaultAppends<Path, K>
 				: never;
 	  }[keyof T]
 	: never;
