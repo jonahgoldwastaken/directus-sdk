@@ -127,7 +127,7 @@ type UnionToTuple<TUnion, TResult extends Array<unknown> = []> = TUnion[] extend
 	? TResult
 	: UnionToTuple<Exclude<TUnion, LastUnion<TUnion>>, [...TResult, LastUnion<TUnion>]>;
 
-export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = T extends Record<string, never>
+export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = T extends unknown
 	? any
 	: Fields extends string[]
 	? Fields['length'] extends 0
@@ -165,8 +165,8 @@ type IntersectionToObject<U> = U extends (infer U2)[]
 		  }
 	: never;
 
-export type QueryOne<T = Record<string, never>> = {
-	fields?: T extends Record<string, never> ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
+export type QueryOne<T = unknown> = {
+	fields?: T extends unknown ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
 	search?: string;
 	deep?: Deep<T>;
 	export?: 'json' | 'csv' | 'xml';
