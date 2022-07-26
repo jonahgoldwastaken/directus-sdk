@@ -112,14 +112,8 @@ type ArrayTreeBranch<U, Path extends string, Val = Record<string, never>, NU = N
 	: DeepPathToObject<Path, NU, Val>;
 
 type TreeLeaf<T, NT = NonNullable<T>> = NT extends (infer U)[]
-	? (Extract<NonNullable<U>, Record<string, any>> extends Record<string, any>
-			? Exclude<NonNullable<U>, Record<string, any>>
-			: NonNullable<U>)[]
-	: Extract<NT, Record<string, any>> extends Record<string, any>
-	? Exclude<NT, Record<string, any>>
-	: NT extends Record<string, any>
-	? undefined
-	: NT;
+	? Exclude<NonNullable<U>, Record<string, unknown>>[]
+	: Exclude<NT, Record<string, unknown>>;
 
 type UnionToIntersectionFn<TUnion> = (TUnion extends TUnion ? (union: () => TUnion) => void : never) extends (
 	intersection: infer Intersection
