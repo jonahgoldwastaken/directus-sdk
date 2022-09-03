@@ -190,6 +190,18 @@ export type Deep<T> = {
 
 export type DeepQueryMany<T> = {
 	[K in keyof QueryMany<SingleItem<T>> as `_${string & K}`]: QueryMany<SingleItem<T>>[K];
+} & {
+	[K in keyof NestedObjectKeys<SingleItem<T>>]?: DeepQueryMany<NestedObjectKeys<SingleItem<T>>[K]>;
+};
+
+export type NestedObjectKeys<T> = {
+	[P in keyof T]: NonNullable<T[P]> extends (infer U)[]
+		? Extract<U, Record<string, unknown>> extends Record<string, unknown>
+			? Extract<U, Record<string, unknown>>
+			: never
+		: Extract<NonNullable<T[P]>, Record<string, unknown>> extends Record<string, unknown>
+		? Extract<NonNullable<T[P]>, Record<string, unknown>>
+		: never;
 };
 
 export type SharedAggregate = {
@@ -251,7 +263,7 @@ export type ItemsOptions = {
 };
 
 type SingleItem<T> = Exclude<Single<T>, ID>;
-type Single<T> = T extends Array<unknown> ? T[number] : T;
+type Single<T, NT = NonNullable<T>> = NT extends Array<unknown> ? NT[number] : NT;
 
 /**
  * CRUD at its finest
