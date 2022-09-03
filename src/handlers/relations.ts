@@ -38,11 +38,7 @@ export class RelationsHandler<T = RelationItem> {
 	async updateOne(collection: string, field: string, item: PartialItem<T>): Promise<OneItem<T>> {
 		if (`${collection}` === '') throw new EmptyParamError('collection');
 		if (`${field}` === '') throw new EmptyParamError('field');
-		return (
-			await this.transport.patch<PartialItem<T>>(`/relations/${collection}/${field}`, {
-				params: item,
-			})
-		).data;
+		return (await this.transport.patch<PartialItem<T>>(`/relations/${collection}/${field}`, item)).data;
 	}
 
 	async deleteOne(collection: string, field: string): Promise<void> {

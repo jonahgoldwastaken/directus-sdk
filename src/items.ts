@@ -48,7 +48,9 @@ type DeepPathBranchHelper<T, K extends keyof T, V, R extends string> = K extends
 	? TreeBranch<T[K], R, (V & { [_ in K]: unknown })[K]>
 	: never;
 
-type WildCardHelper<T, K extends keyof T, V, R extends string> = NonNullable<T[K]> extends (infer U)[]
+type WildCardHelper<T, K extends keyof T, V, R extends string> = string extends K
+	? { [K: string]: T[K] }
+	: NonNullable<T[K]> extends (infer U)[]
 	? Extract<NonNullable<U>, Record<string, unknown>> extends never
 		? TreeLeaf<U>
 		: DeepPathBranchHelper<T, K, V, R>
@@ -63,11 +65,7 @@ type DeepPathToObject<
 > = string extends Path
 	? never
 	: Path extends `${infer Key}.${infer Rest}`
-	? Key extends keyof T
-		? Val & {
-				[_ in Key]?: DeepPathBranchHelper<T, Key, Val, Rest>;
-		  }
-		: Key extends '*'
+	? Key extends '*'
 		? Rest extends `${infer NextVal}.${string}`
 			? NextVal extends '*'
 				? Val & {
@@ -83,7 +81,13 @@ type DeepPathToObject<
 			: Val & {
 					[K in keyof T]?: Rest extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
 			  }
+		: Key extends keyof T
+		? Val & {
+				[_ in Key]?: DeepPathBranchHelper<T, Key, Val, Rest>;
+		  }
 		: never
+	: string extends keyof T
+	? Val & Record<string, unknown>
 	: Path extends keyof T
 	? Val & {
 			[K in Path]?: TreeLeaf<T[K]>;
@@ -127,7 +131,7 @@ type UnionToTuple<TUnion, TResult extends Array<unknown> = []> = TUnion[] extend
 	? TResult
 	: UnionToTuple<Exclude<TUnion, LastUnion<TUnion>>, [...TResult, LastUnion<TUnion>]>;
 
-export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = T extends unknown
+export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = unknown extends T
 	? any
 	: Fields extends string[]
 	? Fields['length'] extends 0
@@ -166,7 +170,7 @@ type IntersectionToObject<U> = U extends (infer U2)[]
 	: never;
 
 export type QueryOne<T = unknown> = {
-	fields?: T extends unknown ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
+	fields?: unknown extends T ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
 	search?: string;
 	deep?: Deep<T>;
 	export?: 'json' | 'csv' | 'xml';
@@ -190,6 +194,18 @@ export type Deep<T> = {
 
 export type DeepQueryMany<T> = {
 	[K in keyof QueryMany<SingleItem<T>> as `_${string & K}`]: QueryMany<SingleItem<T>>[K];
+} & {
+	[K in keyof NestedObjectKeys<SingleItem<T>>]?: DeepQueryMany<NestedObjectKeys<SingleItem<T>>[K]>;
+};
+
+export type NestedObjectKeys<T> = {
+	[P in keyof T]: NonNullable<T[P]> extends (infer U)[]
+		? Extract<U, Record<string, unknown>> extends Record<string, unknown>
+			? Extract<U, Record<string, unknown>>
+			: never
+		: Extract<NonNullable<T[P]>, Record<string, unknown>> extends Record<string, unknown>
+		? Extract<NonNullable<T[P]>, Record<string, unknown>>
+		: never;
 };
 
 export type SharedAggregate = {
@@ -251,7 +267,7 @@ export type ItemsOptions = {
 };
 
 type SingleItem<T> = Exclude<Single<T>, ID>;
-type Single<T> = T extends Array<unknown> ? T[number] : T;
+type Single<T, NT = NonNullable<T>> = NT extends Array<unknown> ? NT[number] : NT;
 
 /**
  * CRUD at its finest
@@ -358,7 +374,7 @@ type DotSeparated<
 	: Extract<NonNullable<T>, Record<string, unknown>> extends Record<string, unknown>
 	? {
 			[K in keyof T]: K extends string
-				? T[K] extends (infer U)[]
+				? NonNullable<T[K]> extends (infer U)[]
 					? Extract<U, Record<string, unknown>> extends never
 						? DefaultAppends<Path, K, false>
 						:
