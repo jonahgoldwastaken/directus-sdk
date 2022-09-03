@@ -127,7 +127,7 @@ type UnionToTuple<TUnion, TResult extends Array<unknown> = []> = TUnion[] extend
 	? TResult
 	: UnionToTuple<Exclude<TUnion, LastUnion<TUnion>>, [...TResult, LastUnion<TUnion>]>;
 
-export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = T extends unknown
+export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = unknown extends T
 	? any
 	: Fields extends string[]
 	? Fields['length'] extends 0
@@ -166,7 +166,7 @@ type IntersectionToObject<U> = U extends (infer U2)[]
 	: never;
 
 export type QueryOne<T = unknown> = {
-	fields?: T extends unknown ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
+	fields?: unknown extends T ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
 	search?: string;
 	deep?: Deep<T>;
 	export?: 'json' | 'csv' | 'xml';
@@ -358,7 +358,7 @@ type DotSeparated<
 	: Extract<NonNullable<T>, Record<string, unknown>> extends Record<string, unknown>
 	? {
 			[K in keyof T]: K extends string
-				? T[K] extends (infer U)[]
+				? NonNullable<T[K]> extends (infer U)[]
 					? Extract<U, Record<string, unknown>> extends never
 						? DefaultAppends<Path, K, false>
 						:
