@@ -48,7 +48,9 @@ type DeepPathBranchHelper<T, K extends keyof T, V, R extends string> = K extends
 	? TreeBranch<T[K], R, (V & { [_ in K]: unknown })[K]>
 	: never;
 
-type WildCardHelper<T, K extends keyof T, V, R extends string> = NonNullable<T[K]> extends (infer U)[]
+type WildCardHelper<T, K extends keyof T, V, R extends string> = string extends K
+	? { [K: string]: T[K] }
+	: NonNullable<T[K]> extends (infer U)[]
 	? Extract<NonNullable<U>, Record<string, unknown>> extends never
 		? TreeLeaf<U>
 		: DeepPathBranchHelper<T, K, V, R>
@@ -63,11 +65,7 @@ type DeepPathToObject<
 > = string extends Path
 	? never
 	: Path extends `${infer Key}.${infer Rest}`
-	? Key extends keyof T
-		? Val & {
-				[_ in Key]?: DeepPathBranchHelper<T, Key, Val, Rest>;
-		  }
-		: Key extends '*'
+	? Key extends '*'
 		? Rest extends `${infer NextVal}.${string}`
 			? NextVal extends '*'
 				? Val & {
@@ -83,7 +81,13 @@ type DeepPathToObject<
 			: Val & {
 					[K in keyof T]?: Rest extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
 			  }
+		: Key extends keyof T
+		? Val & {
+				[_ in Key]?: DeepPathBranchHelper<T, Key, Val, Rest>;
+		  }
 		: never
+	: string extends keyof T
+	? Val & Record<string, unknown>
 	: Path extends keyof T
 	? Val & {
 			[K in Path]?: TreeLeaf<T[K]>;
