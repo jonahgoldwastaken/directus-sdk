@@ -38,12 +38,12 @@ class ItemsHandler {
         const primaryKeyField = (_a = collectionFields.data) === null || _a === void 0 ? void 0 : _a.find((field) => field.schema.is_primary_key === true);
         const { data, meta } = await this.transport.get(`${this.endpoint}`, {
             params: {
+                ...query,
                 filter: {
                     [primaryKeyField.field]: { _in: ids },
                     ...query === null || query === void 0 ? void 0 : query.filter,
                 },
                 sort: (query === null || query === void 0 ? void 0 : query.sort) || primaryKeyField.field,
-                ...query,
             },
             ...options === null || options === void 0 ? void 0 : options.requestOptions,
         });
@@ -309,9 +309,7 @@ class RelationsHandler {
             throw new EmptyParamError('collection');
         if (`${field}` === '')
             throw new EmptyParamError('field');
-        return (await this.transport.patch(`/relations/${collection}/${field}`, {
-            params: item,
-        })).data;
+        return (await this.transport.patch(`/relations/${collection}/${field}`, item)).data;
     }
     async deleteOne(collection, field) {
         if (`${collection}` === '')

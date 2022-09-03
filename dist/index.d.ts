@@ -82,6 +82,7 @@ declare type Item = Record<string, any>;
 declare type PartialItem<T> = {
     [P in keyof T]?: T[P] extends Record<string, any> ? PartialItem<T[P]> : T[P];
 };
+declare type InferQueryType<T extends ManyItems<any> | QueryOne<any>> = 'data' extends keyof T ? T['data'] : T;
 declare type OneItem<T extends Item, Q extends QueryOne<T> = Record<string, any>, F extends string[] | false = QueryFields<Q>> = (F extends false ? PartialItem<T> : PickedPartialItem<T, F>) | null | undefined;
 declare type ManyItems<T extends Item, Q extends QueryMany<T> = Record<string, any>> = {
     data?: OneItem<T, Q>[] | null;
@@ -102,31 +103,36 @@ declare type DeepPathBranchHelper<T, K extends keyof T, V, R extends string> = K
 }) ? TreeBranch<T[K], R, (V & {
     [_ in K]: unknown;
 })[K]> : never;
-declare type DeepPathToObject<Path extends string, T extends Record<string, any>, Val = Record<string, never>> = string extends Path ? never : Path extends `${infer Key}.${infer Rest}` ? Key extends keyof T ? Val & {
-    [_ in Key]?: DeepPathBranchHelper<T, Key, Val, Rest>;
-} : Key extends '*' ? Rest extends `${infer NextVal}.${string}` ? Val & {
+declare type WildCardHelper<T, K extends keyof T, V, R extends string> = string extends K ? {
+    [K: string]: T[K];
+} : NonNullable<T[K]> extends (infer U)[] ? Extract<NonNullable<U>, Record<string, unknown>> extends never ? TreeLeaf<U> : DeepPathBranchHelper<T, K, V, R> : Extract<NonNullable<T[K]>, Record<string, unknown>> extends never ? TreeLeaf<T[K]> : DeepPathBranchHelper<T, K, V, R>;
+declare type DeepPathToObject<Path extends string, T extends Record<string, any>, Val = Record<string, never>> = string extends Path ? never : Path extends `${infer Key}.${infer Rest}` ? Key extends '*' ? Rest extends `${infer NextVal}.${string}` ? NextVal extends '*' ? Val & {
+    [K in keyof T]: WildCardHelper<T, K, Val, Rest>;
+} : Val & {
     [K in keyof T]?: NextVal extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
 } : Rest extends '*' ? Val & {
-    [K in keyof T]?: DeepPathBranchHelper<T, K, Val, Rest>;
+    [K in keyof T]: WildCardHelper<T, K, Val, Rest>;
 } : Val & {
     [K in keyof T]?: Rest extends keyof T[K] ? DeepPathBranchHelper<T, K, Val, Rest> : never;
-} : never : Path extends keyof T ? Val & {
+} : Key extends keyof T ? Val & {
+    [_ in Key]?: DeepPathBranchHelper<T, Key, Val, Rest>;
+} : never : string extends keyof T ? Val & Record<string, unknown> : Path extends keyof T ? Val & {
     [K in Path]?: TreeLeaf<T[K]>;
 } : Path extends '*' ? Val & {
     [K in keyof T]?: TreeLeaf<T[K]>;
 } : never;
 declare type TreeBranch<T, Path extends string, Val = Record<string, never>, NT = NonNullable<T>> = NT extends (infer U)[] ? (ArrayTreeBranch<Extract<U, Record<string, unknown>>, Path, Val> | Exclude<U, Record<string, unknown>>)[] : IsUnion<T> extends true ? DeepPathToObject<Path, Extract<T, Record<string, unknown>>, Val> | Exclude<T, Record<string, unknown>> : DeepPathToObject<Path, NT, Val>;
-declare type ArrayTreeBranch<U, Path extends string, Val = Record<string, never>, NU = NonNullable<U>> = IsUnion<NU> extends true ? Val extends (infer U2)[] ? IsUnion<U2> extends true ? Extract<NU, Record<string, unknown>> extends infer OB ? DeepPathToObject<Path, OB, U2> : never : never : never : Extract<NU, Record<string, unknown>> extends infer OB ? Val extends any[] ? DeepPathToObject<Path, OB, Val[number]> : DeepPathToObject<Path, OB, Val> : Extract<NU, Record<string, unknown>> extends infer OB ? DeepPathToObject<Path, OB, Val> : never;
-declare type TreeLeaf<T, NT = NonNullable<T>> = NT extends (infer U)[] ? IsUnion<NonNullable<U>> extends true ? Extract<NonNullable<U>, Record<string, any>> extends Record<string, any> ? Exclude<NonNullable<U>, Record<string, any>> : NonNullable<U> : NonNullable<U[]> : IsUnion<NT> extends true ? Extract<NT, Record<string, any>> extends Record<string, any> ? Exclude<NT, Record<string, any>> : NT : NT extends Record<string, any> ? undefined : NT;
+declare type ArrayTreeBranch<U, Path extends string, Val = Record<string, never>, NU = NonNullable<U>> = Extract<NU, Record<string, unknown>> extends infer OB ? Val extends (infer _)[] ? DeepPathToObject<Path, OB, Val[number]> : DeepPathToObject<Path, OB, Val> : Val extends (infer _)[] ? DeepPathToObject<Path, NU, Val[number]> : DeepPathToObject<Path, NU, Val>;
+declare type TreeLeaf<T, NT = NonNullable<T>> = NT extends (infer U)[] ? Exclude<NonNullable<U>, Record<string, unknown>>[] : Exclude<NT, Record<string, unknown>>;
 declare type UnionToIntersectionFn<TUnion> = (TUnion extends TUnion ? (union: () => TUnion) => void : never) extends (intersection: infer Intersection) => void ? Intersection : never;
 declare type LastUnion<TUnion> = UnionToIntersectionFn<TUnion> extends () => infer Last ? Last : never;
 declare type UnionToTuple<TUnion, TResult extends Array<unknown> = []> = TUnion[] extends never[] ? TResult : UnionToTuple<Exclude<TUnion, LastUnion<TUnion>>, [...TResult, LastUnion<TUnion>]>;
-declare type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = T extends Record<string, never> ? any : Fields extends string[] ? Fields['length'] extends 0 ? T : UnionToTuple<Fields[number]> extends [infer First, ...infer Rest] ? First extends string ? IntersectionToObject<Rest['length'] extends 0 ? DeepPathToObject<First, T, Val> : PickedPartialItem<T, Rest, DeepPathToObject<First, T, Val>>> : never : never : never;
+declare type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = unknown extends T ? any : Fields extends string[] ? Fields['length'] extends 0 ? T : UnionToTuple<Fields[number]> extends [infer First, ...infer Rest] ? First extends string ? IntersectionToObject<Rest['length'] extends 0 ? DeepPathToObject<First, T, Val> : PickedPartialItem<T, Rest, DeepPathToObject<First, T, Val>>> : never : never : never;
 declare type IntersectionToObject<U> = U extends (infer U2)[] ? Array<IntersectionToObject<U2>> : U extends infer O ? O extends string ? string : O extends number ? number : O extends symbol ? symbol : O extends boolean ? boolean : {
-    [K in keyof O]: string extends K ? never : IsUnion<O[K]> extends true ? IntersectionToObject<O[K]> : O[K] extends Record<string, any> ? IntersectionToObject<O[K]> : O[K];
+    [K in keyof O as unknown extends O[K] ? never : K]: O[K] extends (infer U)[] ? Array<IntersectionToObject<U>> : IsUnion<O[K]> extends true ? IntersectionToObject<O[K]> : O[K] extends Record<string, any> ? IntersectionToObject<O[K]> : O[K];
 } : never;
-declare type QueryOne<T = Record<string, never>> = {
-    fields?: T extends Record<string, never> ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
+declare type QueryOne<T = unknown> = {
+    fields?: unknown extends T ? string | string[] : DotSeparated<T, 5> | DotSeparated<T, 5>[];
     search?: string;
     deep?: Deep<T>;
     export?: 'json' | 'csv' | 'xml';
@@ -147,6 +153,11 @@ declare type Deep<T> = {
 };
 declare type DeepQueryMany<T> = {
     [K in keyof QueryMany<SingleItem<T>> as `_${string & K}`]: QueryMany<SingleItem<T>>[K];
+} & {
+    [K in keyof NestedObjectKeys<SingleItem<T>>]?: DeepQueryMany<NestedObjectKeys<SingleItem<T>>[K]>;
+};
+declare type NestedObjectKeys<T> = {
+    [P in keyof T]: NonNullable<T[P]> extends (infer U)[] ? Extract<U, Record<string, unknown>> extends Record<string, unknown> ? Extract<U, Record<string, unknown>> : never : Extract<NonNullable<T[P]>, Record<string, unknown>> extends Record<string, unknown> ? Extract<NonNullable<T[P]>, Record<string, unknown>> : never;
 };
 declare type SharedAggregate = {
     avg?: string[];
@@ -203,7 +214,7 @@ declare type ItemsOptions = {
     requestOptions: TransportRequestOptions;
 };
 declare type SingleItem<T> = Exclude<Single<T>, ID>;
-declare type Single<T> = T extends Array<unknown> ? T[number] : T;
+declare type Single<T, NT = NonNullable<T>> = NT extends Array<unknown> ? NT[number] : NT;
 /**
  * CRUD at its finest
  */
@@ -222,13 +233,12 @@ declare class EmptyParamError extends Error {
     constructor(paramName?: string);
 }
 declare type IsUnion<T, U extends T = T> = T extends unknown ? ([U] extends [T] ? false : true) : false;
-declare type IsObject<V> = V extends Record<string, unknown> ? true : false;
 declare type AppendToPath<Path extends string, Appendix extends string> = Path extends '' ? Appendix : `${Path}.${Appendix}`;
 declare type OneLevelUp<Path extends string> = Path extends `${infer Start}.${infer Middle}.${infer Rest}` ? Rest extends `${string}.${string}.${string}` ? `${Start}.${Middle}.${OneLevelUp<Rest>}` : Rest extends `${infer NewMiddle}.${string}` ? `${Start}.${Middle}.${NewMiddle}` : Rest extends string ? `${Start}.${Middle}` : '' : Path extends `${infer Start}.${string}` ? Start : '';
 declare type LevelsToAsterisks<Path extends string> = Path extends `${string}.${string}.${infer Rest}` ? Rest extends `${string}.${string}.${string}` ? `*.*.${LevelsToAsterisks<Rest>}` : Rest extends `${string}.${string}` ? `*.*.*.*` : Rest extends string ? `*.*.*` : '' : Path extends `${string}.${string}` ? '*.*' : Path extends '' ? '' : '*';
-declare type DefaultAppends<Path extends string, Appendix extends string, Nested extends boolean = true> = Nested extends true ? OneLevelUp<Path> extends '' ? AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'> | AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'> | AppendToPath<AppendToPath<Path, Appendix>, '*'> | AppendToPath<AppendToPath<Path, '*'>, '*'> | AppendToPath<Path, '*'> : AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'> | AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'> | AppendToPath<AppendToPath<Path, Appendix>, '*'> | AppendToPath<AppendToPath<Path, '*'>, '*'> | AppendToPath<Path, '*'> | AppendToPath<AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>, '*'> | AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'> | AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'> | AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix> : AppendToPath<Path, Appendix> | AppendToPath<LevelsToAsterisks<Path>, Appendix>;
-declare type DotSeparated<T, N extends number, Level extends number[] = [], Path extends string = ''> = Level['length'] extends N ? Path : NonNullable<T> extends (infer U)[] ? IsObject<U> extends true ? DotSeparated<U, N, Level, Path> : Path : IsUnion<NonNullable<T>> extends true ? DotSeparated<Extract<NonNullable<T>, Record<string, unknown>>, N, Level, Path> : IsObject<T> extends true ? {
-    [K in keyof T]: K extends string ? (NonNullable<T[K]> extends (infer U)[] ? IsUnion<NonNullable<U>> extends true ? DotSeparated<NonNullable<U>, N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K> : IsObject<NonNullable<U>> extends true ? DotSeparated<NonNullable<U>, N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K> : DefaultAppends<Path, K, false> : IsUnion<NonNullable<T[K]>> extends true ? DotSeparated<NonNullable<T[K]>, N, [...Level, 0], AppendToPath<Path, K>> : IsObject<NonNullable<T[K]>> extends true ? DotSeparated<NonNullable<T[K]>, N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K> : DefaultAppends<Path, K, false>) | DefaultAppends<Path, K, false> : never;
+declare type DefaultAppends<Path extends string, Appendix extends string, Nested extends boolean = true, Prepend extends boolean = true> = AppendToPath<Path, Appendix> | AppendToPath<LevelsToAsterisks<Path>, Appendix> | (Prepend extends true ? AppendToPath<Path, '*'> | AppendToPath<LevelsToAsterisks<Path>, Appendix> | (OneLevelUp<Path> extends '' ? never : AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>) : never) | (Nested extends true ? AppendToPath<AppendToPath<LevelsToAsterisks<Path>, Appendix>, '*'> | AppendToPath<AppendToPath<LevelsToAsterisks<Path>, '*'>, '*'> | AppendToPath<AppendToPath<Path, Appendix>, '*'> | AppendToPath<AppendToPath<Path, '*'>, '*'> | (OneLevelUp<Path> extends '' ? never : AppendToPath<AppendToPath<AppendToPath<OneLevelUp<Path>, '*'>, Appendix>, '*'>) : never);
+declare type DotSeparated<T, N extends number, Level extends number[] = [], Path extends string = ''> = Level['length'] extends N ? Path : T extends (infer U)[] ? Extract<U, Record<string, unknown>> extends Record<string, unknown> ? DotSeparated<Extract<U, Record<string, unknown>>, N, Level, Path> : Path : Extract<NonNullable<T>, Record<string, unknown>> extends Record<string, unknown> ? {
+    [K in keyof T]: K extends string ? NonNullable<T[K]> extends (infer U)[] ? Extract<U, Record<string, unknown>> extends never ? DefaultAppends<Path, K, false> : DotSeparated<Extract<U, Record<string, unknown>>, N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K> : Extract<T[K], Record<string, unknown>> extends never ? DefaultAppends<Path, K, false> : DotSeparated<Extract<T[K], Record<string, unknown>>, N, [...Level, 0], AppendToPath<Path, K>> | DefaultAppends<Path, K> : never;
 }[keyof T] : never;
 
 declare type TransportErrorDescription = {
@@ -754,4 +764,4 @@ declare class Directus<T extends TypeMap> implements IDirectus<T> {
     items<C extends string, I = TypeOf<T, C>>(collection: C): IItems<I>;
 }
 
-export { ActivityHandler, ActivityItem, ActivityType, Aggregate, Auth, AuthCredentials, AuthMode, AuthOptions, AuthResult, AuthStorage, AuthToken, AuthTokenType, BaseStorage, CollectionItem, CollectionType, CollectionsHandler, Comment, CommentsHandler, Deep, DeepQueryMany, DefaultType, Directus, DirectusOptions, DirectusStorageOptions, DirectusTypes, EmptyParamError, Field, FieldFilter, FieldItem, FieldType, FieldsHandler, FileItem, FileType, FilesHandler, Filter, FilterOperators, FolderItem, FolderType, FoldersHandler, IAuth, ID, IDirectus, IDirectusBase, IItems, ISingleton, IStorage, ITransport, Item, ItemMetadata, ItemsHandler, ItemsOptions, LocalStorage, LogicalFilter, LogicalFilterAnd, LogicalFilterOr, ManyItems, MemoryStorage, Meta, Omit$1 as Omit, OneItem, PartialBy, PartialItem, Payload, PermissionItem, PermissionType, PermissionsHandler, PickedPartialItem, PresetItem, PresetType, PresetsHandler, QueryFields, QueryMany, QueryOne, RelationItem, RelationType, RelationsHandler, RevisionItem, RevisionType, RevisionsHandler, RoleItem, RoleType, RolesHandler, ServerHandler, ServerInfo, SettingItem, SettingType, SettingsHandler, SharedAggregate, Sort, StorageOptions, SystemType, TfaType, Transport, TransportError, TransportErrorDescription, TransportMethods, TransportOptions, TransportRequestOptions, TransportResponse, TypeMap, TypeOf, UserItem, UserType, UsersHandler, UtilsHandler };
+export { ActivityHandler, ActivityItem, ActivityType, Aggregate, Auth, AuthCredentials, AuthMode, AuthOptions, AuthResult, AuthStorage, AuthToken, AuthTokenType, BaseStorage, CollectionItem, CollectionType, CollectionsHandler, Comment, CommentsHandler, Deep, DeepQueryMany, DefaultType, Directus, DirectusOptions, DirectusStorageOptions, DirectusTypes, EmptyParamError, Field, FieldFilter, FieldItem, FieldType, FieldsHandler, FileItem, FileType, FilesHandler, Filter, FilterOperators, FolderItem, FolderType, FoldersHandler, IAuth, ID, IDirectus, IDirectusBase, IItems, ISingleton, IStorage, ITransport, InferQueryType, Item, ItemMetadata, ItemsHandler, ItemsOptions, LocalStorage, LogicalFilter, LogicalFilterAnd, LogicalFilterOr, ManyItems, MemoryStorage, Meta, NestedObjectKeys, Omit$1 as Omit, OneItem, PartialBy, PartialItem, Payload, PermissionItem, PermissionType, PermissionsHandler, PickedPartialItem, PresetItem, PresetType, PresetsHandler, QueryFields, QueryMany, QueryOne, RelationItem, RelationType, RelationsHandler, RevisionItem, RevisionType, RevisionsHandler, RoleItem, RoleType, RolesHandler, ServerHandler, ServerInfo, SettingItem, SettingType, SettingsHandler, SharedAggregate, Sort, StorageOptions, SystemType, TfaType, Transport, TransportError, TransportErrorDescription, TransportMethods, TransportOptions, TransportRequestOptions, TransportResponse, TypeMap, TypeOf, UserItem, UserType, UsersHandler, UtilsHandler };
