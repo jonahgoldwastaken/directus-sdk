@@ -12,7 +12,9 @@ type DefaultItem<T extends Record<string, unknown>> = {
 		? Extract<NonNullable<U>, Record<string, unknown>> extends never
 			? U[]
 			: (string | number)[]
-		: T[K];
+		: Extract<T[K], Record<string, unknown>> extends never
+		? T[K]
+		: Exclude<T[K], Record<string, unknown>> | string | number;
 };
 
 export type OneItem<
