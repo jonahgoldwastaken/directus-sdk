@@ -8,7 +8,11 @@ export type Item = Record<string, any>;
 export type InferQueryType<T extends ManyItems<any> | QueryOne<any>> = 'data' extends keyof T ? T['data'] : T;
 
 type DefaultItem<T extends Record<string, unknown>> = {
-	[K in keyof T]: T[K] extends (infer _)[] ? (string | number)[] : T[K];
+	[K in keyof T]: NonNullable<T[K]> extends (infer U)[]
+		? Extract<NonNullable<U>, Record<string, unknown>> extends never
+			? U[]
+			: (string | number)[]
+		: T[K];
 };
 
 export type OneItem<
