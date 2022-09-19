@@ -5,17 +5,17 @@ export type Field = string;
 
 export type Item = Record<string, any>;
 
-export type PartialItem<T> = {
-	[P in keyof T]?: T[P] extends Record<string, any> ? PartialItem<T[P]> : T[P];
-};
-
 export type InferQueryType<T extends ManyItems<any> | QueryOne<any>> = 'data' extends keyof T ? T['data'] : T;
+
+type DefaultItem<T extends Record<string, unknown>> = {
+	[K in keyof T]: T[K] extends (infer _)[] ? (string | number)[] : T[K];
+};
 
 export type OneItem<
 	T extends Item,
-	Q extends QueryOne<T> = Record<string, any>,
+	Q extends QueryOne<T> = Record<'fields', undefined>,
 	F extends string[] | false = QueryFields<Q>
-> = (F extends false ? PartialItem<T> : PickedPartialItem<T, F>) | null | undefined;
+> = (F extends false ? DefaultItem<T> : PickedPartialItem<T, F>) | null | undefined;
 
 export type ManyItems<T extends Item, Q extends QueryMany<T> = Record<string, any>> = {
 	data?: OneItem<T, Q>[] | null;
@@ -34,7 +34,7 @@ export enum Meta {
 	FILTER_COUNT = 'filter_count',
 }
 
-export type QueryFields<Q extends Record<string, any>> = Q extends Record<'fields', any>
+export type QueryFields<Q extends Record<string, any>> = Q extends Record<'fields', unknown>
 	? Q['fields'] extends string
 		? [Q['fields']]
 		: Q['fields'] extends string[]
