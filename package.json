@@ -6,6 +6,7 @@
 	"main": "dist/sdk.cjs.js",
 	"exports": {
 		".": {
+			"types": "./dist/index.d.ts",
 			"import": {
 				"node": "./index.mjs",
 				"default": "./dist/sdk.bundler.js"
@@ -85,5 +86,5 @@
 	"lint-staged": {
 		"*.{js,ts}": "eslint --fix"
 	},
-	"packageManager": "^pnpm@7.5.0"
+	"packageManager": "pnpm@7.5.0"
 }
