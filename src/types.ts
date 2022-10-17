@@ -87,15 +87,15 @@ export type SettingType = SystemType<{
 	public_foreground: string | null;
 	public_note: string | null;
 	storage_asset_presets:
-		| {
-				fit: string;
-				height: number;
-				width: number;
-				quality: number;
-				key: string;
-				withoutEnlargement: boolean;
-		  }[]
-		| null;
+	| {
+		fit: string;
+		height: number;
+		width: number;
+		quality: number;
+		key: string;
+		withoutEnlargement: boolean;
+	}[]
+	| null;
 	storage_asset_transform: 'none' | 'all' | 'presets';
 }>;
 

@@ -1,7 +1,7 @@
 /**
  * Relations handler
  */
-import { ManyItems, OneItem, PartialItem, EmptyParamError } from '../items';
+import { ManyItems, OneItem, ItemInput, EmptyParamError } from '../items';
 import { ITransport } from '../transport';
 import { RelationType, DefaultType, ID } from '../types';
 
@@ -17,7 +17,7 @@ export class RelationsHandler<T = RelationItem> {
 		if (`${collection}` === '') throw new EmptyParamError('collection');
 		if (`${id}` === '') throw new EmptyParamError('id');
 		const response = await this.transport.get(`/relations/${collection}/${id}`);
-		return response.data as T;
+		return response.data as OneItem<T>;
 	}
 
 	async readMany(collection: string): Promise<ManyItems<T>> {
@@ -31,14 +31,14 @@ export class RelationsHandler<T = RelationItem> {
 		return response.data;
 	}
 
-	async createOne(item: PartialItem<T>): Promise<OneItem<T>> {
-		return (await this.transport.post<T>(`/relations`, item)).data;
+	async createOne(item: ItemInput<T>): Promise<OneItem<T>> {
+		return (await this.transport.post<OneItem<T>>(`/relations`, item)).data;
 	}
 
-	async updateOne(collection: string, field: string, item: PartialItem<T>): Promise<OneItem<T>> {
+	async updateOne(collection: string, field: string, item: ItemInput<T>): Promise<OneItem<T>> {
 		if (`${collection}` === '') throw new EmptyParamError('collection');
 		if (`${field}` === '') throw new EmptyParamError('field');
-		return (await this.transport.patch<PartialItem<T>>(`/relations/${collection}/${field}`, item)).data;
+		return (await this.transport.patch<OneItem<T>>(`/relations/${collection}/${field}`, item)).data;
 	}
 
 	async deleteOne(collection: string, field: string): Promise<void> {

@@ -3,7 +3,7 @@
  */
 
 import { ItemsHandler } from '../base/items';
-import { OneItem, PartialItem } from '../items';
+import { OneItem, ItemInput } from '../items';
 import { ITransport } from '../transport';
 import { FileType, DefaultType } from '../types';
 
@@ -14,8 +14,8 @@ export class FilesHandler<T = DefaultType> extends ItemsHandler<FileItem<T>> {
 		super('directus_files', transport);
 	}
 
-	async import(body: { url: string; data?: PartialItem<T> }): Promise<OneItem<T>> {
+	async import(body: { url: string; data?: ItemInput<T> }): Promise<OneItem<T>> {
 		const response = await this.transport.post(`/files/import`, body);
-		return response.data as T;
+		return response.data as OneItem<T>;
 	}
 }
