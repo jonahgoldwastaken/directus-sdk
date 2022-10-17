@@ -1,5 +1,5 @@
 import { TransportRequestOptions } from './transport';
-import { ID } from './types';
+import { ID, OptionalKeys, RequiredKeys } from './types';
 
 export type Field = string;
 
@@ -83,18 +83,24 @@ type DeepPathToObject<
 			  }
 		: Key extends keyof T
 		? Val & {
-				[_ in Key]: DeepPathBranchHelper<T, Key, Val, Rest>;
+				[K in OptionalKeys<Pick<T, Key>>]?: DeepPathBranchHelper<T, K, Val, Rest>;
+		  } & {
+				[K in RequiredKeys<Pick<T, Key>>]: DeepPathBranchHelper<T, K, Val, Rest>;
 		  }
 		: never
 	: string extends keyof T
 	? Val & Record<string, unknown>
 	: Path extends keyof T
 	? Val & {
-			[K in Path]: TreeLeaf<T[K]>;
+			[K in OptionalKeys<Pick<T, Path>>]?: TreeLeaf<T[K]>;
+	  } & {
+			[K in RequiredKeys<Pick<T, Path>>]: TreeLeaf<T[K]>;
 	  }
 	: Path extends '*'
 	? Val & {
-			[K in keyof T]: TreeLeaf<T[K]>;
+			[K in OptionalKeys<T>]?: TreeLeaf<T[K]>;
+	  } & {
+			[K in RequiredKeys<T>]: TreeLeaf<T[K]>;
 	  }
 	: never;
 
