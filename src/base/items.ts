@@ -6,7 +6,7 @@ import {
 	QueryMany,
 	OneItem,
 	ManyItems,
-	PartialItem,
+	ItemInput,
 	ItemsOptions,
 	EmptyParamError,
 } from '../items';
@@ -69,7 +69,7 @@ export class ItemsHandler<T extends Item> implements IItems<T> {
 	}
 
 	async createOne<Q extends QueryOne<T>>(
-		item: PartialItem<T>,
+		item: ItemInput<T>,
 		query?: Q,
 		options?: ItemsOptions
 	): Promise<OneItem<T, Q>> {
@@ -82,7 +82,7 @@ export class ItemsHandler<T extends Item> implements IItems<T> {
 	}
 
 	async createMany<Q extends QueryMany<T>>(
-		items: PartialItem<T>[],
+		items: ItemInput<T>[],
 		query?: Q,
 		options?: ItemsOptions
 	): Promise<ManyItems<T, Q>> {
@@ -94,7 +94,7 @@ export class ItemsHandler<T extends Item> implements IItems<T> {
 
 	async updateOne<Q extends QueryOne<T>>(
 		id: ID,
-		item: PartialItem<T>,
+		item: ItemInput<T>,
 		query?: Q,
 		options?: ItemsOptions
 	): Promise<OneItem<T, Q>> {
@@ -109,7 +109,7 @@ export class ItemsHandler<T extends Item> implements IItems<T> {
 
 	async updateMany<Q extends QueryMany<T>>(
 		ids: ID[],
-		data: PartialItem<T>,
+		data: ItemInput<T>,
 		query?: Q,
 		options?: ItemsOptions
 	): Promise<ManyItems<T, Q>> {
@@ -128,7 +128,7 @@ export class ItemsHandler<T extends Item> implements IItems<T> {
 
 	async updateByQuery<Q extends QueryMany<T>>(
 		updateQuery: QueryMany<T>,
-		data: PartialItem<T>,
+		data: ItemInput<T>,
 		query?: Q,
 		options?: ItemsOptions
 	): Promise<ManyItems<T, Q>> {

@@ -1,5 +1,5 @@
 import { ITransport } from '../transport';
-import { QueryOne, OneItem, PartialItem } from '../items';
+import { QueryOne, OneItem, ItemInput } from '../items';
 import { ISingleton } from '../singleton';
 
 export class SingletonHandler<T> implements ISingleton<T> {
@@ -20,7 +20,7 @@ export class SingletonHandler<T> implements ISingleton<T> {
 		return item.data;
 	}
 
-	async update<Q extends QueryOne<T>>(data: PartialItem<T>, _query?: Q): Promise<OneItem<T, Q>> {
+	async update<Q extends QueryOne<T>>(data: ItemInput<T>, _query?: Q): Promise<OneItem<T, Q>> {
 		const item = await this.transport.patch<OneItem<T, Q>>(`${this.endpoint}`, data, {
 			params: _query,
 		});

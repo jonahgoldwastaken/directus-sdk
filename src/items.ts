@@ -5,17 +5,26 @@ export type Field = string;
 
 export type Item = Record<string, any>;
 
-export type PartialItem<T> = {
-	[P in keyof T]?: T[P] extends Record<string, any> ? PartialItem<T[P]> : T[P];
+export type ItemInput<T> = {
+	[P in keyof T]?: T[P] extends Record<string, any> ? ItemInput<T[P]> : T[P];
 };
-
 export type InferQueryType<T extends ManyItems<any> | QueryOne<any>> = 'data' extends keyof T ? T['data'] : T;
+
+export type DefaultItem<T> = {
+	[K in keyof T]: NonNullable<T[K]> extends (infer U)[]
+		? Extract<NonNullable<U>, Record<string, unknown>> extends never
+			? U[]
+			: (string | number)[]
+		: Extract<T[K], Record<string, unknown>> extends never
+		? T[K]
+		: Exclude<T[K], Record<string, unknown>> | string | number;
+};
 
 export type OneItem<
 	T extends Item,
-	Q extends QueryOne<T> = Record<string, any>,
+	Q extends QueryOne<T> = Record<'fields', undefined>,
 	F extends string[] | false = QueryFields<Q>
-> = (F extends false ? PartialItem<T> : PickedPartialItem<T, F>) | null | undefined;
+> = (F extends false ? DefaultItem<T> : PickedDefaultItem<T, F>) | null | undefined;
 
 export type ManyItems<T extends Item, Q extends QueryMany<T> = Record<string, any>> = {
 	data?: OneItem<T, Q>[] | null;
@@ -34,7 +43,7 @@ export enum Meta {
 	FILTER_COUNT = 'filter_count',
 }
 
-export type QueryFields<Q extends Record<string, any>> = Q extends Record<'fields', any>
+export type QueryFields<Q extends Record<string, any>> = Q extends Record<'fields', unknown>
 	? Q['fields'] extends string
 		? [Q['fields']]
 		: Q['fields'] extends string[]
@@ -137,7 +146,7 @@ type UnionToTuple<TUnion, TResult extends Array<unknown> = []> = TUnion[] extend
 	? TResult
 	: UnionToTuple<Exclude<TUnion, LastUnion<TUnion>>, [...TResult, LastUnion<TUnion>]>;
 
-export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unknown>> = unknown extends T
+export type PickedDefaultItem<T extends Item, Fields, Val = Record<string, unknown>> = unknown extends T
 	? any
 	: Fields extends string[]
 	? Fields['length'] extends 0
@@ -147,7 +156,7 @@ export type PickedPartialItem<T extends Item, Fields, Val = Record<string, unkno
 			? IntersectionToObject<
 					Rest['length'] extends 0
 						? DeepPathToObject<First, T, Val>
-						: PickedPartialItem<T, Rest, DeepPathToObject<First, T, Val>>
+						: PickedDefaultItem<T, Rest, DeepPathToObject<First, T, Val>>
 			  >
 			: never
 		: never
@@ -279,12 +288,8 @@ type Single<T, NT = NonNullable<T>> = NT extends Array<unknown> ? NT[number] : N
  * CRUD at its finest
  */
 export interface IItems<T extends Item> {
-	createOne<Q extends QueryOne<T>>(item: PartialItem<T>, query?: Q, options?: ItemsOptions): Promise<OneItem<T, Q>>;
-	createMany<Q extends QueryOne<T>>(
-		items: PartialItem<T>[],
-		query?: Q,
-		options?: ItemsOptions
-	): Promise<ManyItems<T, Q>>;
+	createOne<Q extends QueryOne<T>>(item: ItemInput<T>, query?: Q, options?: ItemsOptions): Promise<OneItem<T, Q>>;
+	createMany<Q extends QueryOne<T>>(items: ItemInput<T>[], query?: Q, options?: ItemsOptions): Promise<ManyItems<T, Q>>;
 
 	readOne<Q extends QueryOne<T>>(id: ID, query?: Q, options?: ItemsOptions): Promise<OneItem<T, Q>>;
 	readMany<Q extends QueryMany<T>>(ids: ID[], query?: Q, options?: ItemsOptions): Promise<ManyItems<T, Q>>;
@@ -292,13 +297,13 @@ export interface IItems<T extends Item> {
 
 	updateOne<Q extends QueryOne<T>>(
 		id: ID,
-		item: PartialItem<T>,
+		item: ItemInput<T>,
 		query?: Q,
 		options?: ItemsOptions
 	): Promise<OneItem<T, Q>>;
 	updateMany<Q extends QueryMany<T>>(
 		ids: ID[],
-		item: PartialItem<T>,
+		item: ItemInput<T>,
 		query?: Q,
 		options?: ItemsOptions
 	): Promise<ManyItems<T, Q>>;

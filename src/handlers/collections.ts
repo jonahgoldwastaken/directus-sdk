@@ -2,7 +2,7 @@
  * Collections handler
  */
 
-import { ManyItems, OneItem, PartialItem, QueryOne, EmptyParamError } from '../items';
+import { ManyItems, OneItem, ItemInput, QueryOne, EmptyParamError } from '../items';
 import { ITransport } from '../transport';
 import { CollectionType, DefaultType } from '../types';
 
@@ -17,7 +17,7 @@ export class CollectionsHandler<T = CollectionItem> {
 	async readOne(collection: string): Promise<OneItem<T>> {
 		if (`${collection}` === '') throw new EmptyParamError('collection');
 		const response = await this.transport.get(`/collections/${collection}`);
-		return response.data as T;
+		return response.data as OneItem<T>;
 	}
 
 	async readAll(): Promise<ManyItems<T>> {
@@ -29,11 +29,11 @@ export class CollectionsHandler<T = CollectionItem> {
 		};
 	}
 
-	async createOne(collection: PartialItem<T>): Promise<OneItem<T>> {
-		return (await this.transport.post<T>(`/collections`, collection)).data;
+	async createOne(collection: ItemInput<T>): Promise<OneItem<T>> {
+		return (await this.transport.post<OneItem<T>>(`/collections`, collection)).data;
 	}
 
-	async createMany(collections: PartialItem<T>[]): Promise<ManyItems<T>> {
+	async createMany(collections: ItemInput<T>[]): Promise<ManyItems<T>> {
 		const { data, meta } = await this.transport.post(`/collections`, collections);
 
 		return {
@@ -42,10 +42,10 @@ export class CollectionsHandler<T = CollectionItem> {
 		};
 	}
 
-	async updateOne(collection: string, item: PartialItem<T>, query?: QueryOne<T>): Promise<OneItem<T>> {
+	async updateOne(collection: string, item: ItemInput<T>, query?: QueryOne<T>): Promise<OneItem<T>> {
 		if (`${collection}` === '') throw new EmptyParamError('collection');
 		return (
-			await this.transport.patch<PartialItem<T>>(`/collections/${collection}`, item, {
+			await this.transport.patch<OneItem<T>>(`/collections/${collection}`, item, {
 				params: query,
 			})
 		).data;
